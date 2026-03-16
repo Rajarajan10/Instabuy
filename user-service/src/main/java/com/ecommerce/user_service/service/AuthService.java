@@ -33,7 +33,11 @@ public class AuthService {
     public void register(RegisterRequest request) {
 
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-            throw new DuplicateUserException("DUPLICATE_USER");
+            throw new DuplicateUserException("USER_ALREADY_EXISTS");
+        }
+
+        if(userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new DuplicateUserException("EMAIL_ALREADY_EXISTS");
         }
 
         User user = new User();
