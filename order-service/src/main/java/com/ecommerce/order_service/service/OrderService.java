@@ -91,7 +91,7 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
 
         // ---------- CALL PAYMENT SERVICE ----------
-        String paymentUrl = "http://localhost:8083/payments";
+        String paymentUrl = "http://localhost:8083/payments/initiate";
 
         PaymentRequestDTO paymentRequest = new PaymentRequestDTO();
         paymentRequest.setOrderId(savedOrder.getOrderId());
