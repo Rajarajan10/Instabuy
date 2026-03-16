@@ -23,8 +23,6 @@ public class RegisterRequest {
     @Size(min = 4, message = "Password must be at least 4 characters")
     private String password;
 
-    // user can send role for now
-    private Role role;
 
     public String getUsername() {
         return username;
@@ -38,7 +36,4 @@ public class RegisterRequest {
         return password;
     }
 
-    public Role getRole() {
-        return role;
-    }
 }
