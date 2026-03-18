@@ -18,7 +18,7 @@ public class AuthController {
         this.authService = authService;
     }
 
-    // USER REGISTRATION
+    // USER REGISTRATION APIs
     @PostMapping("/register")
     public String register(@Valid @RequestBody RegisterRequest request) {
 
@@ -27,7 +27,7 @@ public class AuthController {
         return "User registered successfully";
     }
 
-    // USER LOGIN
+    // USER LOGIN APIs
     @PostMapping("/login")
     public String login(@Valid @RequestBody LoginRequest request) {
 
@@ -37,7 +37,7 @@ public class AuthController {
         );
     }
 
-    // PUBLIC TEST ENDPOINT
+    // PUBLIC TEST ENDPOINT APIs
     @GetMapping("/test")
     public String test() {
         return "Auth endpoint working (public)";

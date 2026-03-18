@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api")
 public class ProtectedController {
 
-    // This endpoint is PROTECTED — requires a valid JWT Bearer token
+    // This endpoint is PROTECTED — requires a valid token
     @GetMapping("/test")
     public String protectedTest() {
         return "Protected API is working! Your JWT token is valid.";

@@ -17,6 +17,7 @@ import com.ecommerce.user_service.repository.UserRepository;
 @RequestMapping("/users")
 public class UserController {
 
+    //Dependency Injection
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -26,7 +27,7 @@ public class UserController {
         this.passwordEncoder = passwordEncoder;
     }
 
-    // 1️⃣ GET CURRENT LOGGED USER
+    // GET CURRENT LOGGED USER
     @GetMapping("/me")
     public UserResponse getCurrentUser(Authentication authentication) {
 
@@ -79,11 +80,20 @@ public class UserController {
     @PutMapping("/{id}")
     public UserResponse updateUser(
             @PathVariable Long id,
-            @RequestBody UpdateUserRequest request
+            @RequestBody UpdateUserRequest request,
+            Authentication authentication
     ) {
+
+        // get logged-in username from JWT
+        String loggedInUsername = authentication.getName();
 
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // check if logged-in user is same as target user
+        if (!user.getUsername().equals(loggedInUsername)) {
+            throw new RuntimeException("You are not allowed to update this user");
+        }
 
         // update email
         if (request.getEmail() != null) {
