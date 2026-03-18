@@ -16,10 +16,16 @@ public class PaymentController {
     @Autowired
     private PaymentService paymentService;
 
-    // Create Payment
-    @PostMapping
-    public PaymentResponseDTO createPayment(@RequestBody PaymentRequestDTO paymentRequest) {
-        return paymentService.savePayment(paymentRequest);
+    // Initiate Payment (Order Service)
+    @PostMapping("/initiate")
+    public PaymentResponseDTO initiatePayment(@RequestBody PaymentRequestDTO request) {
+        return paymentService.initiatePayment(request);
+    }
+
+    // Process Payment (Customer)
+    @PostMapping("/process/{orderId}")
+    public PaymentResponseDTO processPayment(@PathVariable Long orderId) {
+        return paymentService.processPayment(orderId);
     }
 
     // Get Payment by ID
@@ -28,16 +34,16 @@ public class PaymentController {
         return paymentService.getPaymentById(id);
     }
 
+    // Get Payment by Order
+    @GetMapping("/order/{orderId}")
+    public PaymentResponseDTO getPaymentByOrder(@PathVariable Long orderId) {
+        return paymentService.getPaymentByOrder(orderId);
+    }
+
     // Get All Payments
     @GetMapping
     public List<PaymentResponseDTO> getAllPayments() {
         return paymentService.getAllPayments();
-    }
-
-    // Update Payment Status
-    @PutMapping("/{id}")
-    public PaymentResponseDTO updatePayment(@PathVariable Long id, @RequestBody PaymentRequestDTO paymentRequest) {
-        return paymentService.updatePayment(id, paymentRequest);
     }
 
     // Delete Payment

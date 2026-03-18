@@ -1,0 +1,17 @@
+payment:
+  method-probability:
+    UPI: 0.7
+    CARD: 0.2
+    WALLET: 0.1
+
+  status-probability:
+    SUCCESS: 0.8
+    FAILED: 0.15
+    PENDING: 0.05
+
+  failure-reasons:
+    INSUFFICIENT_BALANCE: 0.4
+    NETWORK_ERROR: 0.2
+    BANK_DECLINED: 0.2
+    LIMIT_EXCEEDED: 0.1
+    FRAUD_SUSPECTED: 0.1

@@ -2,6 +2,7 @@ package com.ecommerce.payment_service.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "payments")
@@ -29,6 +30,14 @@ public class Payment {
     @Column(name = "transaction_date", nullable = false)
     private LocalDateTime transactionDate;
 
+    // 🔥 NEW: Failure reason (only for FAILED)
+    @Column(name = "failure_reason")
+    private String failureReason;
+
+    // 🔥 NEW: Transaction ID (unique like real systems)
+    @Column(name = "transaction_id", unique = true, nullable = false)
+    private String transactionId;
+
     public Payment() {}
 
     public Payment(Long orderId, Double amount, PaymentMethod paymentMethod,
@@ -39,6 +48,8 @@ public class Payment {
         this.status = status;
         this.transactionDate = transactionDate;
     }
+
+    // ===== GETTERS =====
 
     public Long getPaymentId() {
         return paymentId;
@@ -64,6 +75,16 @@ public class Payment {
         return transactionDate;
     }
 
+    public String getFailureReason() {
+        return failureReason;
+    }
+
+    public String getTransactionId() {
+        return transactionId;
+    }
+
+    // ===== SETTERS =====
+
     public void setPaymentId(Long paymentId) {
         this.paymentId = paymentId;
     }
@@ -88,8 +109,23 @@ public class Payment {
         this.transactionDate = transactionDate;
     }
 
+    public void setFailureReason(String failureReason) {
+        this.failureReason = failureReason;
+    }
+
+    public void setTransactionId(String transactionId) {
+        this.transactionId = transactionId;
+    }
+
+    // ===== AUTO GENERATION =====
+
     @PrePersist
     protected void onCreate() {
         transactionDate = LocalDateTime.now();
+
+        // 🔥 Auto-generate transaction ID if not set
+        if (transactionId == null) {
+            transactionId = UUID.randomUUID().toString();
+        }
     }
 }

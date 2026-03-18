@@ -1,5 +1,6 @@
 package com.ecommerce.order_service.controller;
 
+import com.ecommerce.order_service.dto.CartItemRequest;
 import com.ecommerce.order_service.model.Cart;
 import com.ecommerce.order_service.model.CartItem;
 import com.ecommerce.order_service.service.CartService;
@@ -18,17 +19,19 @@ public class CartController {
         this.cartService = cartService;
     }
 
-        @PostMapping("/add")
-        public Cart addItem(Authentication authentication,
-                            @RequestBody CartItem item){
+    @PostMapping("/add")
+    public Cart addItem(Authentication authentication,
+                        @RequestBody CartItemRequest request){
 
-            String username = SecurityContextHolder
-                    .getContext()
-                    .getAuthentication()
-                    .getName();
+        String username = authentication.getName();
 
-            return cartService.addItem(username,item);
-        }
+        CartItem item = new CartItem();
+        item.setProductId(request.getProductId());
+        item.setQuantity(request.getQuantity());
+        item.setPrice(request.getPrice());
+
+        return cartService.addItem(username, item);
+    }
 
     @GetMapping
     public Cart getCart(Authentication authentication){
