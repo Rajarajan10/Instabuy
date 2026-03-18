@@ -47,8 +47,8 @@ public class AuthService {
 
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
-        // allow role from request for now
-        user.setRole(request.getRole() != null ? request.getRole() : Role.USER);
+        // always assign role as USER during regi
+        user.setRole(Role.USER);
 
         userRepository.save(user);
     }
