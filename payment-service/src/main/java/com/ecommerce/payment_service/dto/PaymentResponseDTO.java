@@ -11,6 +11,10 @@ public class PaymentResponseDTO {
     private String status;
     private LocalDateTime transactionDate;
 
+    // 🔥 NEW FIELDS
+    private String failureReason;
+    private String transactionId;
+
     public PaymentResponseDTO() {}
 
     public Long getPaymentId() {
@@ -59,5 +63,23 @@ public class PaymentResponseDTO {
 
     public void setTransactionDate(LocalDateTime transactionDate) {
         this.transactionDate = transactionDate;
+    }
+
+    // 🔥 NEW GETTERS & SETTERS
+
+    public String getFailureReason() {
+        return failureReason;
+    }
+
+    public void setFailureReason(String failureReason) {
+        this.failureReason = failureReason;
+    }
+
+    public String getTransactionId() {
+        return transactionId;
+    }
+
+    public void setTransactionId(String transactionId) {
+        this.transactionId = transactionId;
     }
 }

@@ -3,6 +3,8 @@ package com.ecommerce.order_service.controller;
 import com.ecommerce.order_service.model.Order;
 import com.ecommerce.order_service.service.OrderService;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,12 +46,13 @@ public class OrderController {
         return orderService.cancelOrder(orderId);
     }
 
-    // checkout cart -> create order
+    // 🔥 UPDATED CHECKOUT
     @PostMapping("/checkout")
-    public Order checkout(Authentication authentication){
+    public Order checkout(Authentication authentication,
+                          HttpServletRequest request){
 
         String username = authentication.getName();
 
-        return orderService.checkout(username);
+        return orderService.checkout(username, request);
     }
 }
