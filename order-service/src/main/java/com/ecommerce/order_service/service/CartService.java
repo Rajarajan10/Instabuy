@@ -43,7 +43,7 @@ public class CartService {
     // Add Item to Cart
     public CartResponseDTO addItem(String username, CartItemRequest request){
 
-        // STEP 1: Fetch product details (price comes from inventory service)
+        // Fetch product details (price comes from inventory service)
         String productUrl = "http://localhost:8082/inventory/product/" + request.getProductId();
 
         ProductResponseDTO product = restTemplate.getForObject(
@@ -55,7 +55,7 @@ public class CartService {
             throw new RuntimeException("Product not found");
         }
 
-        // STEP 2: Get or create cart
+        // Get or create cart
         Cart cart = cartRepository.findByUserId(username)
                 .orElseGet(() -> {
                     Cart c = new Cart();
@@ -64,7 +64,7 @@ public class CartService {
                     return cartRepository.save(c);
                 });
 
-        // STEP 3: Check if item already exists
+        // Check if item already exists
         Optional<CartItem> existing =
                 cartItemRepository.findByCartAndProductId(cart, request.getProductId());
 
@@ -74,7 +74,7 @@ public class CartService {
             totalQuantity += existing.get().getQuantity();
         }
 
-        // STEP 4: Check stock availability using total quantity
+        // Check stock availability using total quantity
         String stockCheckUrl = "http://localhost:8082/inventory/check/"
                 + request.getProductId()
                 + "?quantity=" + totalQuantity;
@@ -85,7 +85,7 @@ public class CartService {
             throw new RuntimeException("Not enough stock available");
         }
 
-        // STEP 5: Add or update cart item with correct price
+        // Add or update cart item with correct price
         if(existing.isPresent()){
             CartItem item = existing.get();
             item.setQuantity(totalQuantity);
@@ -100,7 +100,7 @@ public class CartService {
             cartItemRepository.save(item);
         }
 
-        // STEP 6: Return updated cart
+        // Return updated cart
         return cartMapper.toDTO(cart);
     }
 

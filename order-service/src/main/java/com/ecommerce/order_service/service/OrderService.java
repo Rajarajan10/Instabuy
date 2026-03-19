@@ -64,7 +64,7 @@ public class OrderService {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", authHeader);
 
-        // STEP 1: CHECK INVENTORY
+        // CHECK INVENTORY
         for(CartItem c : cartItems){
 
             String checkUrl = "http://localhost:8082/inventory/check/"
@@ -98,7 +98,7 @@ public class OrderService {
         // SAVE ORDER FIRST
         Order savedOrder = orderRepository.save(order);
 
-        // STEP 2: CALL PAYMENT SERVICE
+        // CALL PAYMENT SERVICE
         PaymentRequestDTO paymentRequest = new PaymentRequestDTO();
         paymentRequest.setOrderId(savedOrder.getOrderId());
         paymentRequest.setAmount(savedOrder.getTotalAmount());
@@ -115,7 +115,7 @@ public class OrderService {
             );
         } catch (HttpClientErrorException e) {
 
-            // 🔥 HANDLE "PAYMENT ALREADY EXISTS"
+            // HANDLE PAYMENT ALREADY EXISTS
             if(e.getResponseBodyAsString().contains("already exists")){
                 savedOrder.setStatus(OrderStatus.CONFIRMED);
                 orderRepository.save(savedOrder);
@@ -132,13 +132,16 @@ public class OrderService {
 
         PaymentResponseDTO paymentBody = paymentResponse.getBody();
 
-        // STEP 3: HANDLE PAYMENT RESULT
+        // HANDLE PAYMENT RESULT
         if(paymentBody != null && "SUCCESS".equals(paymentBody.getStatus())){
 
             savedOrder.setStatus(OrderStatus.CONFIRMED);
 
-            // STEP 4: REDUCE INVENTORY
+            // REDUCE INVENTORY
             reduceInventory(cartItems, headers);
+
+            // CLEAR CART
+            cartItemRepository.deleteAll(cartItems);
 
         } else {
             savedOrder.setStatus(OrderStatus.CANCELLED);
@@ -146,8 +149,7 @@ public class OrderService {
 
         orderRepository.save(savedOrder);
 
-        // STEP 5: CLEAR CART
-        cartItemRepository.deleteAll(cartItems);
+
 
         return orderMapper.toDTO(savedOrder);
     }

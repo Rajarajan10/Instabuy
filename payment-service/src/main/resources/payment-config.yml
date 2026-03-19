@@ -5,9 +5,8 @@ payment:
     WALLET: 0.1
 
   status-probability:
-    SUCCESS: 0.8
-    FAILED: 0.15
-    PENDING: 0.05
+    SUCCESS: 0.7
+    FAILED: 0.3
 
   failure-reasons:
     INSUFFICIENT_BALANCE: 0.4
