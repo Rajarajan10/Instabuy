@@ -1,6 +1,6 @@
 package com.ecommerce.order_service.controller;
 
-import com.ecommerce.order_service.model.Order;
+import com.ecommerce.order_service.dto.OrderResponseDTO;
 import com.ecommerce.order_service.service.OrderService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,39 +20,23 @@ public class OrderController {
         this.orderService = orderService;
     }
 
-    // create order manually
-    @PostMapping
-    public Order createOrder(Authentication authentication,
-                             @RequestBody Order order){
+    @PostMapping("/checkout")
+    public OrderResponseDTO checkout(Authentication authentication,
+                                     HttpServletRequest request){
 
         String username = authentication.getName();
-
-        return orderService.createOrder(username,order);
+        return orderService.checkout(username, request);
     }
 
-    // get orders of logged user
     @GetMapping
-    public List<Order> getOrders(Authentication authentication){
+    public List<OrderResponseDTO> getOrders(Authentication authentication){
 
         String username = authentication.getName();
-
         return orderService.getOrders(username);
     }
 
-    // cancel order
     @PutMapping("/cancel/{orderId}")
-    public Order cancelOrder(@PathVariable Long orderId){
-
+    public OrderResponseDTO cancelOrder(@PathVariable Long orderId){
         return orderService.cancelOrder(orderId);
-    }
-
-    // 🔥 UPDATED CHECKOUT
-    @PostMapping("/checkout")
-    public Order checkout(Authentication authentication,
-                          HttpServletRequest request){
-
-        String username = authentication.getName();
-
-        return orderService.checkout(username, request);
     }
 }

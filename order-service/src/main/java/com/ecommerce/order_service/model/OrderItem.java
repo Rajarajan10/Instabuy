@@ -35,7 +35,7 @@ public class OrderItem {
     }
 
     public void setId(Long id) {
-        id = id;
+        this.id = id;
     }
 
     public Long getProductId() {

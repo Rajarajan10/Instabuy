@@ -1,11 +1,19 @@
 package com.ecommerce.order_service.dto;
 
-public class CartItemRequest {
+public class CartItemResponseDTO {
 
+    private Long id;
     private Long productId;
     private Integer quantity;
+    private Double price;
 
-    public CartItemRequest() {}
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
 
     public Long getProductId() {
         return productId;
@@ -21,5 +29,13 @@ public class CartItemRequest {
 
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+    }
+
+    public Double getPrice() {
+        return price;
+    }
+
+    public void setPrice(Double price) {
+        this.price = price;
     }
 }

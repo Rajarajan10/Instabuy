@@ -1,20 +1,20 @@
 package com.ecommerce.order_service.service;
 
+import com.ecommerce.order_service.dto.*;
+import com.ecommerce.order_service.mapper.OrderMapper;
 import com.ecommerce.order_service.model.*;
 import com.ecommerce.order_service.repository.*;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.http.*;
 
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-
-import com.ecommerce.order_service.dto.PaymentRequestDTO;
-import com.ecommerce.order_service.dto.PaymentResponseDTO;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class OrderService {
@@ -22,27 +22,27 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
-    private final OrderItemRepository orderItemRepository;
     private final RestTemplate restTemplate;
+    private final OrderMapper orderMapper;
 
     public OrderService(OrderRepository orderRepository,
                         CartRepository cartRepository,
                         CartItemRepository cartItemRepository,
-                        OrderItemRepository orderItemRepository,
-                        RestTemplate restTemplate) {
+                        RestTemplate restTemplate,
+                        OrderMapper orderMapper) {
 
         this.orderRepository = orderRepository;
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
-        this.orderItemRepository = orderItemRepository;
         this.restTemplate = restTemplate;
+        this.orderMapper = orderMapper;
     }
 
-    // 🔥 CHECKOUT WITH JWT PROPAGATION
-    public Order checkout(String username, HttpServletRequest httpRequest){
+    public OrderResponseDTO checkout(String username, HttpServletRequest request){
 
-        String authHeader = httpRequest.getHeader("Authorization");
+        String authHeader = request.getHeader("Authorization");
 
+        // GET CART
         Cart cart = cartRepository.findByUserId(username)
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
 
@@ -52,6 +52,7 @@ public class OrderService {
             throw new RuntimeException("Cart is empty");
         }
 
+        // CREATE ORDER
         Order order = new Order();
         order.setUserId(username);
         order.setOrderDate(LocalDateTime.now());
@@ -60,124 +61,130 @@ public class OrderService {
         double total = 0;
         List<OrderItem> orderItems = new ArrayList<>();
 
-        // 🔥 COMMON HEADERS FOR ALL CALLS
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", authHeader);
 
-        for(CartItem cartItem : cartItems){
+        // STEP 1: CHECK INVENTORY
+        for(CartItem c : cartItems){
 
-            // ---------- CHECK INVENTORY ----------
-            String checkUrl =
-                    "http://localhost:8082/inventory/check/" +
-                            cartItem.getProductId() +
-                            "?quantity=" + cartItem.getQuantity();
+            String checkUrl = "http://localhost:8082/inventory/check/"
+                    + c.getProductId() + "?quantity=" + c.getQuantity();
 
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-
-            ResponseEntity<Boolean> inventoryResponse =
-                    restTemplate.exchange(
-                            checkUrl,
-                            HttpMethod.GET,
-                            entity,
-                            Boolean.class
-                    );
-
-            Boolean available = inventoryResponse.getBody();
+            Boolean available = restTemplate.exchange(
+                    checkUrl,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    Boolean.class
+            ).getBody();
 
             if(Boolean.FALSE.equals(available)){
-                throw new RuntimeException(
-                        "Not enough stock for product " + cartItem.getProductId()
-                );
+                throw new RuntimeException("Not enough stock for product " + c.getProductId());
             }
 
-            OrderItem orderItem = new OrderItem();
-            orderItem.setProductId(cartItem.getProductId());
-            orderItem.setQuantity(cartItem.getQuantity());
-            orderItem.setPrice(cartItem.getPrice());
-            orderItem.setOrder(order);
+            // CREATE ORDER ITEM
+            OrderItem item = new OrderItem();
+            item.setProductId(c.getProductId());
+            item.setQuantity(c.getQuantity());
+            item.setPrice(c.getPrice());
+            item.setOrder(order);
 
-            total += cartItem.getPrice() * cartItem.getQuantity();
-            orderItems.add(orderItem);
+            total += c.getPrice() * c.getQuantity();
+            orderItems.add(item);
         }
 
-        order.setTotalAmount(total);
         order.setItems(orderItems);
+        order.setTotalAmount(total);
 
+        // SAVE ORDER FIRST
         Order savedOrder = orderRepository.save(order);
 
-        // ---------- CALL PAYMENT SERVICE ----------
-        String paymentUrl = "http://localhost:8083/payments/initiate";
-
+        // STEP 2: CALL PAYMENT SERVICE
         PaymentRequestDTO paymentRequest = new PaymentRequestDTO();
         paymentRequest.setOrderId(savedOrder.getOrderId());
         paymentRequest.setAmount(savedOrder.getTotalAmount());
         paymentRequest.setPaymentMethod("UPI");
 
-        HttpEntity<PaymentRequestDTO> paymentEntity =
-                new HttpEntity<>(paymentRequest, headers);
+        ResponseEntity<PaymentResponseDTO> paymentResponse;
 
-        ResponseEntity<PaymentResponseDTO> paymentResponseEntity =
-                restTemplate.exchange(
-                        paymentUrl,
-                        HttpMethod.POST,
-                        paymentEntity,
-                        PaymentResponseDTO.class
-                );
+        try {
+            paymentResponse = restTemplate.exchange(
+                    "http://localhost:8083/payments/initiate",
+                    HttpMethod.POST,
+                    new HttpEntity<>(paymentRequest, headers),
+                    PaymentResponseDTO.class
+            );
+        } catch (HttpClientErrorException e) {
 
-        PaymentResponseDTO response = paymentResponseEntity.getBody();
+            // 🔥 HANDLE "PAYMENT ALREADY EXISTS"
+            if(e.getResponseBodyAsString().contains("already exists")){
+                savedOrder.setStatus(OrderStatus.CONFIRMED);
+                orderRepository.save(savedOrder);
 
-        if(response != null && "SUCCESS".equals(response.getStatus())){
+                // still reduce inventory + clear cart
+                reduceInventory(cartItems, headers);
+                cartItemRepository.deleteAll(cartItems);
+
+                return orderMapper.toDTO(savedOrder);
+            }
+
+            throw new RuntimeException("Payment service failed");
+        }
+
+        PaymentResponseDTO paymentBody = paymentResponse.getBody();
+
+        // STEP 3: HANDLE PAYMENT RESULT
+        if(paymentBody != null && "SUCCESS".equals(paymentBody.getStatus())){
 
             savedOrder.setStatus(OrderStatus.CONFIRMED);
 
-            // ---------- REDUCE INVENTORY ----------
-            for(CartItem cartItem : cartItems){
+            // STEP 4: REDUCE INVENTORY
+            reduceInventory(cartItems, headers);
 
-                String reduceUrl =
-                        "http://localhost:8082/inventory/reduce/" +
-                                cartItem.getProductId() +
-                                "?quantity=" + cartItem.getQuantity();
-
-                HttpEntity<Void> reduceEntity = new HttpEntity<>(headers);
-
-                restTemplate.exchange(
-                        reduceUrl,
-                        HttpMethod.PUT,
-                        reduceEntity,
-                        Void.class
-                );
-            }
-
-        }else{
+        } else {
             savedOrder.setStatus(OrderStatus.CANCELLED);
         }
 
         orderRepository.save(savedOrder);
 
-        // ---------- CLEAR CART ----------
+        // STEP 5: CLEAR CART
         cartItemRepository.deleteAll(cartItems);
 
-        return savedOrder;
+        return orderMapper.toDTO(savedOrder);
     }
 
-    public Order createOrder(String username, Order order){
-        order.setUserId(username);
-        order.setOrderDate(LocalDateTime.now());
-        order.setStatus(OrderStatus.PENDING);
-        return orderRepository.save(order);
+    // INVENTORY REDUCTION METHOD
+    private void reduceInventory(List<CartItem> cartItems, HttpHeaders headers){
+
+        for(CartItem c : cartItems){
+
+            String reduceUrl = "http://localhost:8082/inventory/reduce/"
+                    + c.getProductId() + "?quantity=" + c.getQuantity();
+
+            restTemplate.exchange(
+                    reduceUrl,
+                    HttpMethod.PUT,
+                    new HttpEntity<>(headers),
+                    Void.class
+            );
+        }
     }
 
-    public List<Order> getOrders(String username){
-        return orderRepository.findByUserId(username);
+    // GET ORDERS
+    public List<OrderResponseDTO> getOrders(String username){
+        return orderRepository.findByUserId(username)
+                .stream()
+                .map(orderMapper::toDTO)
+                .collect(Collectors.toList());
     }
 
-    public Order cancelOrder(Long orderId){
+    // CANCEL ORDER
+    public OrderResponseDTO cancelOrder(Long id){
 
-        Order order = orderRepository.findById(orderId)
+        Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
         order.setStatus(OrderStatus.CANCELLED);
 
-        return orderRepository.save(order);
+        return orderMapper.toDTO(orderRepository.save(order));
     }
 }

@@ -1,10 +1,10 @@
 package com.ecommerce.order_service.service;
 
+import com.ecommerce.order_service.dto.*;
 import com.ecommerce.order_service.exception.CartNotFoundException;
-import com.ecommerce.order_service.model.Cart;
-import com.ecommerce.order_service.model.CartItem;
-import com.ecommerce.order_service.repository.CartItemRepository;
-import com.ecommerce.order_service.repository.CartRepository;
+import com.ecommerce.order_service.mapper.CartMapper;
+import com.ecommerce.order_service.model.*;
+import com.ecommerce.order_service.repository.*;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -18,67 +18,94 @@ public class CartService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final RestTemplate restTemplate;
+    private final CartMapper cartMapper;
 
     public CartService(CartRepository cartRepository,
                        CartItemRepository cartItemRepository,
-                       RestTemplate restTemplate){
+                       RestTemplate restTemplate,
+                       CartMapper cartMapper){
 
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.restTemplate = restTemplate;
+        this.cartMapper = cartMapper;
     }
 
-    public Cart getCart(String username){
-
-        return cartRepository.findByUserId(username)
-                .orElseThrow(() -> new CartNotFoundException("CART_NOT_FOUND"));
-    }
-
-    public Cart addItem(String username, CartItem item){
-
-        // ---------- CHECK PRODUCT EXISTS IN INVENTORY ----------
-        String productUrl = "http://localhost:8082/inventory/product/" + item.getProductId();
-
-        try{
-            restTemplate.getForObject(productUrl, Object.class);
-        }catch(Exception e){
-            throw new RuntimeException("Product does not exist in inventory");
-        }
-
+    // Get Cart
+    public CartResponseDTO getCart(String username){
 
         Cart cart = cartRepository.findByUserId(username)
+                .orElseThrow(() -> new CartNotFoundException("CART_NOT_FOUND"));
+
+        return cartMapper.toDTO(cart);
+    }
+
+    // Add Item to Cart
+    public CartResponseDTO addItem(String username, CartItemRequest request){
+
+        // STEP 1: Fetch product details (price comes from inventory service)
+        String productUrl = "http://localhost:8082/inventory/product/" + request.getProductId();
+
+        ProductResponseDTO product = restTemplate.getForObject(
+                productUrl,
+                ProductResponseDTO.class
+        );
+
+        if (product == null) {
+            throw new RuntimeException("Product not found");
+        }
+
+        // STEP 2: Get or create cart
+        Cart cart = cartRepository.findByUserId(username)
                 .orElseGet(() -> {
-
-                    Cart newCart = new Cart();
-                    newCart.setUserId(username);
-                    newCart.setCreatedAt(LocalDateTime.now());
-
-                    return cartRepository.save(newCart);
+                    Cart c = new Cart();
+                    c.setUserId(username);
+                    c.setCreatedAt(LocalDateTime.now());
+                    return cartRepository.save(c);
                 });
 
+        // STEP 3: Check if item already exists
+        Optional<CartItem> existing =
+                cartItemRepository.findByCartAndProductId(cart, request.getProductId());
 
-        // ---------- CHECK IF PRODUCT ALREADY EXISTS IN CART ----------
-        Optional<CartItem> existingItem =
-                cartItemRepository.findByCartAndProductId(cart, item.getProductId());
+        int totalQuantity = request.getQuantity();
 
-        if(existingItem.isPresent()){
+        if(existing.isPresent()){
+            totalQuantity += existing.get().getQuantity();
+        }
 
-            CartItem cartItem = existingItem.get();
-            cartItem.setQuantity(cartItem.getQuantity() + item.getQuantity());
+        // STEP 4: Check stock availability using total quantity
+        String stockCheckUrl = "http://localhost:8082/inventory/check/"
+                + request.getProductId()
+                + "?quantity=" + totalQuantity;
 
-            cartItemRepository.save(cartItem);
+        Boolean isAvailable = restTemplate.getForObject(stockCheckUrl, Boolean.class);
 
-        }else{
+        if (Boolean.FALSE.equals(isAvailable)) {
+            throw new RuntimeException("Not enough stock available");
+        }
 
+        // STEP 5: Add or update cart item with correct price
+        if(existing.isPresent()){
+            CartItem item = existing.get();
+            item.setQuantity(totalQuantity);
+            item.setPrice(product.getPrice()); // price from inventory
+            cartItemRepository.save(item);
+        } else {
+            CartItem item = new CartItem();
+            item.setProductId(request.getProductId());
+            item.setQuantity(request.getQuantity());
+            item.setPrice(product.getPrice()); // price from inventory
             item.setCart(cart);
             cartItemRepository.save(item);
         }
 
-        return cart;
+        // STEP 6: Return updated cart
+        return cartMapper.toDTO(cart);
     }
 
+    // Remove item from cart
     public void removeItem(Long itemId){
-
         cartItemRepository.deleteById(itemId);
     }
 }
