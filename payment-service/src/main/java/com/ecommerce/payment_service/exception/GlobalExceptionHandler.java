@@ -1,49 +1,59 @@
 package com.ecommerce.payment_service.exception;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import java.time.LocalDateTime;
 
-@ControllerAdvice
+@RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Payment not found
+    // Payment Not Found
     @ExceptionHandler(PaymentNotFoundException.class)
-    public ResponseEntity<String> handlePaymentNotFound(PaymentNotFoundException ex) {
-        return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+    public ResponseEntity<ErrorResponse> handleNotFound(PaymentNotFoundException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
-    // Duplicate payment for same order
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<String> handleDuplicatePayment(DataIntegrityViolationException ex) {
-        return new ResponseEntity<>("Payment already exists for this order.", HttpStatus.BAD_REQUEST);
+    // Invalid Input
+    @ExceptionHandler(InvalidPaymentException.class)
+    public ResponseEntity<ErrorResponse> handleInvalid(InvalidPaymentException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
-    // Invalid enum values (payment method, status)
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<String> handleInvalidEnum(IllegalArgumentException ex) {
-        return new ResponseEntity<>("Invalid payment method or status provided.", HttpStatus.BAD_REQUEST);
+    // Duplicate Payment
+    @ExceptionHandler(DuplicatePaymentException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicate(DuplicatePaymentException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
-    // Invalid JSON request body
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<String> handleInvalidJson(HttpMessageNotReadableException ex) {
-        return new ResponseEntity<>("Malformed JSON request body.", HttpStatus.BAD_REQUEST);
+    // Already Processed
+    @ExceptionHandler(PaymentAlreadyProcessedException.class)
+    public ResponseEntity<ErrorResponse> handleProcessed(PaymentAlreadyProcessedException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
-    // Wrong type in request parameter
-    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<String> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
-        return new ResponseEntity<>("Invalid parameter type in request.", HttpStatus.BAD_REQUEST);
+    // Processing Error
+    @ExceptionHandler(PaymentProcessingException.class)
+    public ResponseEntity<ErrorResponse> handleProcessing(PaymentProcessingException ex) {
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
     }
 
-    // Catch-all unexpected errors
+    // Catch-all (VERY IMPORTANT)
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<String> handleGeneralException(Exception ex) {
-        return new ResponseEntity<>("Unexpected error occurred in Payment Service.", HttpStatus.INTERNAL_SERVER_ERROR);
+    public ResponseEntity<ErrorResponse> handleGeneral(Exception ex) {
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong");
+    }
+
+    // Common builder
+    private ResponseEntity<ErrorResponse> buildResponse(HttpStatus status, String message) {
+
+        ErrorResponse error = new ErrorResponse();
+        error.setTimestamp(LocalDateTime.now());
+        error.setStatus(status.value());
+        error.setError(status.getReasonPhrase());
+        error.setMessage(message);
+
+        return new ResponseEntity<>(error, status);
     }
 }

@@ -1,20 +1,38 @@
 package com.ecommerce.payment_service.service;
 
+// ✅ Config
 import com.ecommerce.payment_service.config.PaymentConfig;
+
+// ✅ DTOs
 import com.ecommerce.payment_service.dto.PaymentRequestDTO;
 import com.ecommerce.payment_service.dto.PaymentResponseDTO;
+
+// ✅ Exceptions
 import com.ecommerce.payment_service.exception.PaymentNotFoundException;
+import com.ecommerce.payment_service.exception.InvalidPaymentException;
+import com.ecommerce.payment_service.exception.DuplicatePaymentException;
+import com.ecommerce.payment_service.exception.PaymentAlreadyProcessedException;
+import com.ecommerce.payment_service.exception.PaymentProcessingException;
+
+// ✅ Models
 import com.ecommerce.payment_service.model.Payment;
 import com.ecommerce.payment_service.model.PaymentMethod;
 import com.ecommerce.payment_service.model.PaymentStatus;
+
+// ✅ Repository
 import com.ecommerce.payment_service.repository.PaymentRepository;
+
+// ✅ Utility
 import com.ecommerce.payment_service.util.ProbabilityUtil;
 
+// ✅ Spring
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+// ✅ Lifecycle
 import jakarta.annotation.PostConstruct;
 
+// ✅ Java
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,9 +43,8 @@ public class PaymentService {
     private PaymentRepository paymentRepository;
 
     @Autowired
-    private PaymentConfig paymentConfig; // 🔥 NEW
+    private PaymentConfig paymentConfig;
 
-    // 🔥 Validate probabilities once at startup
     @PostConstruct
     public void validateConfigs() {
         ProbabilityUtil.validateProbabilities(paymentConfig.getMethodProbability());
@@ -38,47 +55,58 @@ public class PaymentService {
         }
     }
 
-    // INITIATE PAYMENT (called by Order Service during checkout)
+    // ✅ INITIATE PAYMENT
     public PaymentResponseDTO initiatePayment(PaymentRequestDTO request) {
 
-        // Prevent duplicate payment for same order
+        // 🔥 Input validation
+        if (request.getOrderId() == null) {
+            throw new InvalidPaymentException("Order ID cannot be null");
+        }
+
+        if (request.getAmount() == null || request.getAmount() <= 0) {
+            throw new InvalidPaymentException("Amount must be greater than zero");
+        }
+
+        // 🔥 Duplicate check
         if (paymentRepository.findByOrderId(request.getOrderId()).isPresent()) {
-            throw new RuntimeException("Payment already exists for this order");
+            throw new DuplicatePaymentException(
+                    "Payment already exists for order: " + request.getOrderId());
         }
 
         Payment payment = new Payment();
-
         payment.setOrderId(request.getOrderId());
         payment.setAmount(request.getAmount());
 
-        // 🔥 Pick method using probability (override request for simulation)
-        String methodStr = ProbabilityUtil.pickByProbability(
-                paymentConfig.getMethodProbability()
-        );
-        payment.setPaymentMethod(PaymentMethod.valueOf(methodStr));
-
-        // 🔥 Pick status using probability
-        String statusStr = ProbabilityUtil.pickByProbability(
-                paymentConfig.getStatusProbability()
-        );
-        PaymentStatus status = PaymentStatus.valueOf(statusStr);
-        payment.setPaymentStatus(status);
-
-        // 🔥 Optional: simulate failure reason
-        if (status == PaymentStatus.FAILED && paymentConfig.getFailureReasons() != null) {
-            String reason = ProbabilityUtil.pickByProbability(
-                    paymentConfig.getFailureReasons()
+        try {
+            // 🔥 Safe enum conversion
+            String methodStr = ProbabilityUtil.pickByProbability(
+                    paymentConfig.getMethodProbability()
             );
-            payment.setFailureReason(reason); // make sure field exists in entity
+            payment.setPaymentMethod(PaymentMethod.valueOf(methodStr));
+
+            String statusStr = ProbabilityUtil.pickByProbability(
+                    paymentConfig.getStatusProbability()
+            );
+            PaymentStatus status = PaymentStatus.valueOf(statusStr);
+            payment.setPaymentStatus(status);
+
+            if (status == PaymentStatus.FAILED && paymentConfig.getFailureReasons() != null) {
+                String reason = ProbabilityUtil.pickByProbability(
+                        paymentConfig.getFailureReasons()
+                );
+                payment.setFailureReason(reason);
+            }
+
+        } catch (IllegalArgumentException e) {
+            throw new PaymentProcessingException("Invalid configuration for payment processing", e);
         }
 
         Payment savedPayment = paymentRepository.save(payment);
-
         return convertToDTO(savedPayment);
     }
 
 
-    // PROCESS PAYMENT (optional manual confirmation)
+    // ✅ PROCESS PAYMENT
     public PaymentResponseDTO processPayment(Long orderId) {
 
         Payment payment = paymentRepository.findByOrderId(orderId)
@@ -86,34 +114,37 @@ public class PaymentService {
                         new PaymentNotFoundException("Payment not found for order: " + orderId));
 
         if (payment.getPaymentStatus() == PaymentStatus.SUCCESS) {
-            throw new RuntimeException("Payment already completed for this order");
+            throw new PaymentAlreadyProcessedException(
+                    "Payment already completed for order: " + orderId);
         }
 
-        // 🔥 Re-evaluate status
-        String statusStr = ProbabilityUtil.pickByProbability(
-                paymentConfig.getStatusProbability()
-        );
-
-        PaymentStatus status = PaymentStatus.valueOf(statusStr);
-        payment.setPaymentStatus(status);
-
-        // 🔥 Failure reason handling
-        if (status == PaymentStatus.FAILED && paymentConfig.getFailureReasons() != null) {
-            String reason = ProbabilityUtil.pickByProbability(
-                    paymentConfig.getFailureReasons()
+        try {
+            String statusStr = ProbabilityUtil.pickByProbability(
+                    paymentConfig.getStatusProbability()
             );
-            payment.setFailureReason(reason);
-        } else {
-            payment.setFailureReason(null);
+
+            PaymentStatus status = PaymentStatus.valueOf(statusStr);
+            payment.setPaymentStatus(status);
+
+            if (status == PaymentStatus.FAILED && paymentConfig.getFailureReasons() != null) {
+                String reason = ProbabilityUtil.pickByProbability(
+                        paymentConfig.getFailureReasons()
+                );
+                payment.setFailureReason(reason);
+            } else {
+                payment.setFailureReason(null);
+            }
+
+        } catch (IllegalArgumentException e) {
+            throw new PaymentProcessingException("Error while processing payment", e);
         }
 
         Payment updatedPayment = paymentRepository.save(payment);
-
         return convertToDTO(updatedPayment);
     }
 
 
-    // GET PAYMENT BY ID
+    // ✅ GET PAYMENT BY ID
     public PaymentResponseDTO getPaymentById(Long id) {
 
         Payment payment = paymentRepository.findById(id)
@@ -124,7 +155,7 @@ public class PaymentService {
     }
 
 
-    // GET PAYMENT BY ORDER
+    // ✅ GET PAYMENT BY ORDER
     public PaymentResponseDTO getPaymentByOrder(Long orderId) {
 
         Payment payment = paymentRepository.findByOrderId(orderId)
@@ -135,9 +166,8 @@ public class PaymentService {
     }
 
 
-    // GET ALL PAYMENTS
+    // ✅ GET ALL
     public List<PaymentResponseDTO> getAllPayments() {
-
         return paymentRepository.findAll()
                 .stream()
                 .map(this::convertToDTO)
@@ -145,7 +175,7 @@ public class PaymentService {
     }
 
 
-    // DELETE PAYMENT
+    // ✅ DELETE
     public void deletePayment(Long id) {
 
         if (!paymentRepository.existsById(id)) {
@@ -156,7 +186,7 @@ public class PaymentService {
     }
 
 
-    // ENTITY → DTO
+    // 🔄 ENTITY → DTO
     private PaymentResponseDTO convertToDTO(Payment payment) {
 
         PaymentResponseDTO dto = new PaymentResponseDTO();
@@ -168,10 +198,10 @@ public class PaymentService {
         dto.setStatus(payment.getPaymentStatus().name());
         dto.setTransactionDate(payment.getTransactionDate());
 
-        // 🔥 Optional (only if DTO has it)
         if (payment.getFailureReason() != null) {
             dto.setFailureReason(payment.getFailureReason());
         }
+
         return dto;
     }
 }
