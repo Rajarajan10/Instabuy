@@ -3,7 +3,6 @@ package com.ecommerce.inventory_service.entity;
 import jakarta.persistence.*;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
-
 @Entity
 public class Product {
 
@@ -12,6 +11,10 @@ public class Product {
     private Long productId;
 
     private String name;
+
+    // case-insensitive uniqueness
+    @Column(unique = true, nullable = false)
+    private String normalizedName;
 
     private double price;
 
@@ -35,6 +38,14 @@ public class Product {
         this.name = name;
     }
 
+    public String getNormalizedName() {
+        return normalizedName;
+    }
+
+    public void setNormalizedName(String normalizedName) {
+        this.normalizedName = normalizedName;
+    }
+
     public double getPrice() {
         return price;
     }
@@ -54,6 +65,7 @@ public class Product {
     public Stock getStock() {
         return stock;
     }
+
     public void setStock(Stock stock) {
         this.stock = stock;
     }
