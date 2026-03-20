@@ -36,7 +36,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // If header missing or invalid, continue without authentication
         final String authHeader = request.getHeader("Authorization");
 
-        //System.out.println("Authorization Header: " + authHeader);
 
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
 

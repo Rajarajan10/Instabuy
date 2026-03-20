@@ -1,6 +1,7 @@
 package com.ecommerce.order_service.service;
 
 import com.ecommerce.order_service.dto.*;
+import com.ecommerce.order_service.exception.*;
 import com.ecommerce.order_service.mapper.OrderMapper;
 import com.ecommerce.order_service.model.*;
 import com.ecommerce.order_service.repository.*;
@@ -42,17 +43,15 @@ public class OrderService {
 
         String authHeader = request.getHeader("Authorization");
 
-        // GET CART
         Cart cart = cartRepository.findByUserId(username)
-                .orElseThrow(() -> new RuntimeException("Cart not found"));
+                .orElseThrow(() -> new CartNotFoundException("Cart not found"));
 
         List<CartItem> cartItems = cartItemRepository.findByCart(cart);
 
         if(cartItems.isEmpty()){
-            throw new RuntimeException("Cart is empty");
+            throw new EmptyCartException("Cart is empty");
         }
 
-        // CREATE ORDER
         Order order = new Order();
         order.setUserId(username);
         order.setOrderDate(LocalDateTime.now());
@@ -64,24 +63,27 @@ public class OrderService {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", authHeader);
 
-        // CHECK INVENTORY
         for(CartItem c : cartItems){
 
             String checkUrl = "http://localhost:8082/inventory/check/"
                     + c.getProductId() + "?quantity=" + c.getQuantity();
 
-            Boolean available = restTemplate.exchange(
-                    checkUrl,
-                    HttpMethod.GET,
-                    new HttpEntity<>(headers),
-                    Boolean.class
-            ).getBody();
-
-            if(Boolean.FALSE.equals(available)){
-                throw new RuntimeException("Not enough stock for product " + c.getProductId());
+            Boolean available;
+            try {
+                available = restTemplate.exchange(
+                        checkUrl,
+                        HttpMethod.GET,
+                        new HttpEntity<>(headers),
+                        Boolean.class
+                ).getBody();
+            } catch (Exception e) {
+                throw new InventoryServiceException("Inventory service unavailable");
             }
 
-            // CREATE ORDER ITEM
+            if(Boolean.FALSE.equals(available)){
+                throw new InsufficientStockException("Not enough stock for product " + c.getProductId());
+            }
+
             OrderItem item = new OrderItem();
             item.setProductId(c.getProductId());
             item.setQuantity(c.getQuantity());
@@ -95,10 +97,13 @@ public class OrderService {
         order.setItems(orderItems);
         order.setTotalAmount(total);
 
-        // SAVE ORDER FIRST
-        Order savedOrder = orderRepository.save(order);
+        Order savedOrder;
+        try {
+            savedOrder = orderRepository.save(order);
+        } catch (Exception e) {
+            throw new OrderCreationException("Failed to create order");
+        }
 
-        // CALL PAYMENT SERVICE
         PaymentRequestDTO paymentRequest = new PaymentRequestDTO();
         paymentRequest.setOrderId(savedOrder.getOrderId());
         paymentRequest.setAmount(savedOrder.getTotalAmount());
@@ -115,32 +120,27 @@ public class OrderService {
             );
         } catch (HttpClientErrorException e) {
 
-            // HANDLE PAYMENT ALREADY EXISTS
             if(e.getResponseBodyAsString().contains("already exists")){
                 savedOrder.setStatus(OrderStatus.CONFIRMED);
                 orderRepository.save(savedOrder);
 
-                // still reduce inventory + clear cart
                 reduceInventory(cartItems, headers);
                 cartItemRepository.deleteAll(cartItems);
 
                 return orderMapper.toDTO(savedOrder);
             }
 
-            throw new RuntimeException("Payment service failed");
+            throw new PaymentFailedException("Payment service failed");
         }
 
         PaymentResponseDTO paymentBody = paymentResponse.getBody();
 
-        // HANDLE PAYMENT RESULT
         if(paymentBody != null && "SUCCESS".equals(paymentBody.getStatus())){
 
             savedOrder.setStatus(OrderStatus.CONFIRMED);
 
-            // REDUCE INVENTORY
             reduceInventory(cartItems, headers);
 
-            // CLEAR CART
             cartItemRepository.deleteAll(cartItems);
 
         } else {
@@ -149,12 +149,9 @@ public class OrderService {
 
         orderRepository.save(savedOrder);
 
-
-
         return orderMapper.toDTO(savedOrder);
     }
 
-    // INVENTORY REDUCTION METHOD
     private void reduceInventory(List<CartItem> cartItems, HttpHeaders headers){
 
         for(CartItem c : cartItems){
@@ -162,16 +159,19 @@ public class OrderService {
             String reduceUrl = "http://localhost:8082/inventory/reduce/"
                     + c.getProductId() + "?quantity=" + c.getQuantity();
 
-            restTemplate.exchange(
-                    reduceUrl,
-                    HttpMethod.PUT,
-                    new HttpEntity<>(headers),
-                    Void.class
-            );
+            try {
+                restTemplate.exchange(
+                        reduceUrl,
+                        HttpMethod.PUT,
+                        new HttpEntity<>(headers),
+                        Void.class
+                );
+            } catch (Exception e) {
+                throw new StockUpdateException("Failed to update stock");
+            }
         }
     }
 
-    // GET ORDERS
     public List<OrderResponseDTO> getOrders(String username){
         return orderRepository.findByUserId(username)
                 .stream()
@@ -179,11 +179,10 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
 
-    // CANCEL ORDER
     public OrderResponseDTO cancelOrder(Long id){
 
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new OrderNotFoundException("Order not found"));
 
         order.setStatus(OrderStatus.CANCELLED);
 

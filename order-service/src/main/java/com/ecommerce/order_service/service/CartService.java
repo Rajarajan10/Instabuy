@@ -1,7 +1,7 @@
 package com.ecommerce.order_service.service;
 
 import com.ecommerce.order_service.dto.*;
-import com.ecommerce.order_service.exception.CartNotFoundException;
+import com.ecommerce.order_service.exception.*;
 import com.ecommerce.order_service.mapper.CartMapper;
 import com.ecommerce.order_service.model.*;
 import com.ecommerce.order_service.repository.*;
@@ -31,7 +31,6 @@ public class CartService {
         this.cartMapper = cartMapper;
     }
 
-    // Get Cart
     public CartResponseDTO getCart(String username){
 
         Cart cart = cartRepository.findByUserId(username)
@@ -40,22 +39,32 @@ public class CartService {
         return cartMapper.toDTO(cart);
     }
 
-    // Add Item to Cart
     public CartResponseDTO addItem(String username, CartItemRequest request){
 
-        // Fetch product details (price comes from inventory service)
-        String productUrl = "http://localhost:8082/inventory/product/" + request.getProductId();
-
-        ProductResponseDTO product = restTemplate.getForObject(
-                productUrl,
-                ProductResponseDTO.class
-        );
-
-        if (product == null) {
-            throw new RuntimeException("Product not found");
+        // VALIDATION
+        if (request.getProductId() == null) {
+            throw new InvalidQuantityException("Product ID cannot be null");
         }
 
-        // Get or create cart
+        if (request.getQuantity() <= 0) {
+            throw new InvalidQuantityException("Quantity must be greater than zero");
+        }
+
+        // FETCH PRODUCT
+        String productUrl = "http://localhost:8082/inventory/product/" + request.getProductId();
+
+        ProductResponseDTO product;
+        try {
+            product = restTemplate.getForObject(productUrl, ProductResponseDTO.class);
+        } catch (Exception e) {
+            throw new InventoryServiceException("Inventory service unavailable");
+        }
+
+        if (product == null) {
+            throw new ProductNotFoundException("Product not found");
+        }
+
+        // GET OR CREATE CART
         Cart cart = cartRepository.findByUserId(username)
                 .orElseGet(() -> {
                     Cart c = new Cart();
@@ -64,7 +73,6 @@ public class CartService {
                     return cartRepository.save(c);
                 });
 
-        // Check if item already exists
         Optional<CartItem> existing =
                 cartItemRepository.findByCartAndProductId(cart, request.getProductId());
 
@@ -74,37 +82,40 @@ public class CartService {
             totalQuantity += existing.get().getQuantity();
         }
 
-        // Check stock availability using total quantity
+        // STOCK CHECK
         String stockCheckUrl = "http://localhost:8082/inventory/check/"
                 + request.getProductId()
                 + "?quantity=" + totalQuantity;
 
-        Boolean isAvailable = restTemplate.getForObject(stockCheckUrl, Boolean.class);
-
-        if (Boolean.FALSE.equals(isAvailable)) {
-            throw new RuntimeException("Not enough stock available");
+        Boolean isAvailable;
+        try {
+            isAvailable = restTemplate.getForObject(stockCheckUrl, Boolean.class);
+        } catch (Exception e) {
+            throw new InventoryServiceException("Inventory service unavailable");
         }
 
-        // Add or update cart item with correct price
+        if (Boolean.FALSE.equals(isAvailable)) {
+            throw new InsufficientStockException("Not enough stock available");
+        }
+
+        // SAVE
         if(existing.isPresent()){
             CartItem item = existing.get();
             item.setQuantity(totalQuantity);
-            item.setPrice(product.getPrice()); // price from inventory
+            item.setPrice(product.getPrice());
             cartItemRepository.save(item);
         } else {
             CartItem item = new CartItem();
             item.setProductId(request.getProductId());
             item.setQuantity(request.getQuantity());
-            item.setPrice(product.getPrice()); // price from inventory
+            item.setPrice(product.getPrice());
             item.setCart(cart);
             cartItemRepository.save(item);
         }
 
-        // Return updated cart
         return cartMapper.toDTO(cart);
     }
 
-    // Remove item from cart
     public void removeItem(Long itemId){
         cartItemRepository.deleteById(itemId);
     }
