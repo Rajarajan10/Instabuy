@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class JwtService {
@@ -22,20 +24,22 @@ public class JwtService {
     public JwtService(@Value("${jwt.secret}") String secret,
                       @Value("${jwt.expiration-ms:36000000}") long expirationMillis) {
 
-        // Decode Base64 secret correctly
         byte[] keyBytes = Decoders.BASE64.decode(secret);
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
-
         this.expirationMillis = expirationMillis;
     }
 
-    // Generate token when user logs in
-    public String generateToken(String username) {
+    //  include role in token
+    public String generateToken(String username, String role) {
 
         Date issuedAt = new Date();
         Date expiration = new Date(issuedAt.getTime() + expirationMillis);
 
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role);
+
         return Jwts.builder()
+                .setClaims(claims)
                 .setSubject(username)
                 .setIssuedAt(issuedAt)
                 .setExpiration(expiration)
@@ -43,9 +47,14 @@ public class JwtService {
                 .compact();
     }
 
-    // Extract username from token
+    // Extract username
     public String extractUsername(String token) {
         return extractAllClaims(token).getSubject();
+    }
+
+    //  extract role
+    public String extractRole(String token) {
+        return extractAllClaims(token).get("role", String.class);
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
@@ -62,7 +71,6 @@ public class JwtService {
 
     // Read claims from token
     private Claims extractAllClaims(String token) {
-
         return Jwts.parserBuilder()
                 .setSigningKey(secretKey)
                 .build()

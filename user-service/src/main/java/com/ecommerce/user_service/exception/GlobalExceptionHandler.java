@@ -16,7 +16,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleUserNotFound(UserNotFoundException ex) {
 
         return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
+                .status(HttpStatus.NOT_FOUND) // returns 404
                 .body(Map.of("error", ex.getMessage()));
     }
 
@@ -25,7 +25,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleDuplicateUser(DuplicateUserException ex) {
 
         return ResponseEntity
-                .status(HttpStatus.CONFLICT)
+                .status(HttpStatus.CONFLICT) // returns 409 conflict
                 .body(Map.of("error", ex.getMessage()));
     }
 
@@ -34,7 +34,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleInvalidPassword(InvalidPasswordException ex) {
 
         return ResponseEntity
-                .status(HttpStatus.UNAUTHORIZED)
+                .status(HttpStatus.UNAUTHORIZED) // returns 401 unauth
                 .body(Map.of("error", ex.getMessage()));
     }
 
@@ -49,7 +49,7 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
+                .status(HttpStatus.BAD_REQUEST) // returns 400
                 .body(errors);
     }
 }

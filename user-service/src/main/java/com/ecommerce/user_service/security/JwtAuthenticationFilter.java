@@ -35,7 +35,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String authHeader = request.getHeader("Authorization");
 
-        // if no token present continue filter chain
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -45,12 +44,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             String token = authHeader.substring(7);
             String username = jwtService.extractUsername(token);
-            System.out.println("JWT Username: " + username);
 
             if (StringUtils.hasText(username)
                     && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                UserDetails userDetails =
+                        userDetailsService.loadUserByUsername(username);
 
                 if (jwtService.isTokenValid(token, userDetails)) {
 
@@ -73,13 +72,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             System.out.println("JWT Filter Error: " + ex.getMessage());
 
-            // Don't block request — let Spring Security decide
             filterChain.doFilter(request, response);
         }
     }
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
-        return path.startsWith("/auth") || path.startsWith("/h2-console") || path.startsWith("/swagger");
+        return path.startsWith("/auth")
+                || path.startsWith("/h2-console")
+                || path.startsWith("/swagger");
     }
 }

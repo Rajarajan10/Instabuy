@@ -36,7 +36,7 @@ public class AuthService {
             throw new DuplicateUserException("USER_ALREADY_EXISTS");
         }
 
-        if(userRepository.findByEmail(request.getEmail()).isPresent()) {
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new DuplicateUserException("EMAIL_ALREADY_EXISTS");
         }
 
@@ -44,10 +44,9 @@ public class AuthService {
 
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
-
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
-        // always assign role as USER during regi
+        // always assign role as USER
         user.setRole(Role.USER);
 
         userRepository.save(user);
@@ -63,6 +62,10 @@ public class AuthService {
             throw new InvalidPasswordException("INVALID_PASSWORD");
         }
 
-        return jwtService.generateToken(user.getUsername());
+        // include role in token
+        return jwtService.generateToken(
+                user.getUsername(),
+                user.getRole().name()
+        );
     }
 }
