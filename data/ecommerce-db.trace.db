@@ -148,3 +148,28 @@ Caused by: org.h2.jdbc.JdbcSQLNonTransientConnectionException: Error opening dat
 2026-03-21 10:40:12.320138+05:30 jdbc[83]: exception
 org.h2.jdbc.JdbcSQLSyntaxErrorException: Syntax error in SQL statement "update [*]from users where id=4 put role=ADMIN"; expected "identifier"; SQL statement:
 update from users where id=4 put role=ADMIN [42001-240]
+2026-03-21 19:20:18.272392+05:30 database: opening C:/Users/abhishek.tomar1/Desktop/Instabuy/data/ecommerce-db
+org.h2.message.DbException: Error opening database: "Lock file recently modified" [8000-240]
+	at org.h2.message.DbException.get(DbException.java:212)
+	at org.h2.store.FileLock.getExceptionFatal(FileLock.java:429)
+	at org.h2.store.FileLock.waitUntilOld(FileLock.java:301)
+	at org.h2.store.FileLock.lockFile(FileLock.java:318)
+	at org.h2.store.FileLock.lock(FileLock.java:110)
+	at org.h2.engine.Database.<init>(Database.java:319)
+	at org.h2.engine.Engine.openSession(Engine.java:92)
+	at org.h2.engine.Engine.openSession(Engine.java:222)
+	at org.h2.engine.Engine.createSession(Engine.java:201)
+	at org.h2.engine.SessionRemote.connectEmbeddedOrServer(SessionRemote.java:350)
+	at org.h2.engine.SessionRemote.autoReconnect(SessionRemote.java:522)
+	at org.h2.engine.SessionRemote.removeServer(SessionRemote.java:482)
+	at org.h2.engine.SessionRemote.hasPendingTransaction(SessionRemote.java:190)
+	at org.h2.jdbc.JdbcConnection.close(JdbcConnection.java:377)
+	at com.zaxxer.hikari.pool.PoolBase.quietlyCloseConnection(PoolBase.java:147)
+	at com.zaxxer.hikari.pool.HikariPool.lambda$closeConnection$1(HikariPool.java:462)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: org.h2.jdbc.JdbcSQLNonTransientConnectionException: Error opening database: "Lock file recently modified" [8000-240]
+	at org.h2.message.DbException.getJdbcSQLException(DbException.java:516)
+	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489)
+	... 19 more
