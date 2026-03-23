@@ -1,3 +1,14 @@
 # Default ignored files
 /shelf/
 /workspace.xml
+
+# Ignore all embedded DB junk by default
+*.mv.db
+*.mv
+*.h2.db
+*.db
+*.lock
+*.trace
+
+# But allow the ONE canonical DB file we want to share
+!ecommerce-db.mv.db
