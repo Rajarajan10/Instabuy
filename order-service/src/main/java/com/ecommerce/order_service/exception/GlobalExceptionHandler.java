@@ -19,7 +19,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleNotFound(RuntimeException ex) {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", ex.getMessage()));
+                .body(Map.of(
+                        "error", ex.getClass().getSimpleName(),
+                        "message", ex.getMessage()
+                ));
     }
 
     // BAD REQUEST
@@ -32,7 +35,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleBadRequest(RuntimeException ex) {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
+                .body(Map.of(
+                        "error", ex.getClass().getSimpleName(),
+                        "message", ex.getMessage()
+                ));
+    }
+
+    // FORBIDDEN (business-level access issues)
+    @ExceptionHandler(UnauthorizedCartAccessException.class)
+    public ResponseEntity<Map<String, String>> handleForbidden(RuntimeException ex) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(Map.of(
+                        "error", ex.getClass().getSimpleName(),
+                        "message", ex.getMessage()
+                ));
     }
 
     // SERVICE / PROCESSING ERRORS
@@ -45,15 +62,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleServiceErrors(RuntimeException ex) {
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", ex.getMessage()));
-    }
-
-    // UNAUTHORIZED
-    @ExceptionHandler(UnauthorizedCartAccessException.class)
-    public ResponseEntity<Map<String, String>> handleUnauthorized(RuntimeException ex) {
-        return ResponseEntity
-                .status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of("error", ex.getMessage()));
+                .body(Map.of(
+                        "error", ex.getClass().getSimpleName(),
+                        "message", ex.getMessage()
+                ));
     }
 
     // FALLBACK
@@ -61,6 +73,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleGeneric(Exception ex) {
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Something went wrong"));
+                .body(Map.of(
+                        "error", "InternalServerError",
+                        "message", "Something went wrong"
+                ));
     }
 }

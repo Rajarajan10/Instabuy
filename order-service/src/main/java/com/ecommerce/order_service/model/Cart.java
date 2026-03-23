@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -20,7 +21,7 @@ public class Cart {
 
     @OneToMany(mappedBy="cart",cascade=CascadeType.ALL)
     @JsonManagedReference
-    private List<CartItem> items;
+    private List<CartItem> items = new ArrayList<>();;
 
     public Cart() {
     }

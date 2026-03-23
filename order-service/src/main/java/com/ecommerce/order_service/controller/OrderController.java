@@ -3,9 +3,6 @@ package com.ecommerce.order_service.controller;
 import com.ecommerce.order_service.dto.OrderResponseDTO;
 import com.ecommerce.order_service.service.OrderService;
 
-import jakarta.servlet.http.HttpServletRequest;
-
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,17 +18,17 @@ public class OrderController {
     }
 
     @PostMapping("/checkout")
-    public OrderResponseDTO checkout(Authentication authentication,
-                                     HttpServletRequest request){
+    public OrderResponseDTO checkout(
+            @RequestHeader("X-User-Name") String username,
+            @RequestHeader(value = "Authorization", required = false) String authHeader){
 
-        String username = authentication.getName();
-        return orderService.checkout(username, request);
+        return orderService.checkout(username, authHeader);
     }
 
     @GetMapping
-    public List<OrderResponseDTO> getOrders(Authentication authentication){
+    public List<OrderResponseDTO> getOrders(
+            @RequestHeader("X-User-Name") String username){
 
-        String username = authentication.getName();
         return orderService.getOrders(username);
     }
 

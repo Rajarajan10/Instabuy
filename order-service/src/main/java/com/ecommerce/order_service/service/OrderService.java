@@ -11,8 +11,6 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.http.*;
 
-import jakarta.servlet.http.HttpServletRequest;
-
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -39,9 +37,7 @@ public class OrderService {
         this.orderMapper = orderMapper;
     }
 
-    public OrderResponseDTO checkout(String username, HttpServletRequest request){
-
-        String authHeader = request.getHeader("Authorization");
+    public OrderResponseDTO checkout(String username, String authHeader){
 
         Cart cart = cartRepository.findByUserId(username)
                 .orElseThrow(() -> new CartNotFoundException("Cart not found"));
@@ -61,10 +57,13 @@ public class OrderService {
         List<OrderItem> orderItems = new ArrayList<>();
 
         HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", authHeader);
+        if (authHeader != null) {
+            headers.set("Authorization", authHeader);
+        }
 
         for(CartItem c : cartItems){
 
+            //Quantity Check
             String checkUrl = "http://localhost:8082/inventory/check/"
                     + c.getProductId() + "?quantity=" + c.getQuantity();
 
@@ -80,6 +79,7 @@ public class OrderService {
                 throw new InventoryServiceException("Inventory service unavailable");
             }
 
+            // Insufficient Quantity
             if(Boolean.FALSE.equals(available)){
                 throw new InsufficientStockException("Not enough stock for product " + c.getProductId());
             }
