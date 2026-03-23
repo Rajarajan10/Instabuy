@@ -3,8 +3,6 @@ package com.ecommerce.user_service.controller;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,7 +15,6 @@ import com.ecommerce.user_service.repository.UserRepository;
 @RequestMapping("/users")
 public class UserController {
 
-    //Dependency Injection
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -27,18 +24,14 @@ public class UserController {
         this.passwordEncoder = passwordEncoder;
     }
 
-    // GET CURRENT LOGGED USER
+    //GET CURRENT USER
     @GetMapping("/me")
-    public UserResponse getCurrentUser(Authentication authentication) {
+    public UserResponse getCurrentUser(
+            @RequestHeader("X-User-Name") String username) {
 
-        // get username from JWT
-        String username = authentication.getName();
-
-        // find user in database
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // convert to response DTO
         return new UserResponse(
                 user.getId(),
                 user.getUsername(),
@@ -47,14 +40,16 @@ public class UserController {
         );
     }
 
-    // 2️⃣ GET ALL USERS (ADMIN)
+    // GET ALL USERS
     @GetMapping("/all")
-    @PreAuthorize("hasRole('ADMIN')")
-    public List<UserResponse> getAllUsers() {
+    public List<UserResponse> getAllUsers(
+            @RequestHeader("X-User-Role") String role) {
 
-        List<User> users = userRepository.findAll();
+        if (!"ADMIN".equals(role)) {
+            throw new RuntimeException("Access denied");
+        }
 
-        return users.stream()
+        return userRepository.findAll().stream()
                 .map(user -> new UserResponse(
                         user.getId(),
                         user.getUsername(),
@@ -64,43 +59,40 @@ public class UserController {
                 .collect(Collectors.toList());
     }
 
-    // DELETE USER (ADMIN )
-
+    // DELETE USER (ADMIN)
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public String deleteUser(@PathVariable Long id) {
+    public String deleteUser(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Role") String role) {
+
+        if (!"ADMIN".equals(role)) {
+            throw new RuntimeException("Access denied");
+        }
 
         userRepository.deleteById(id);
-
         return "User deleted successfully";
     }
 
-
-    //  UPDATE USER
+    // UPDATE USER (SELF ONLY)
     @PutMapping("/{id}")
     public UserResponse updateUser(
             @PathVariable Long id,
             @RequestBody UpdateUserRequest request,
-            Authentication authentication
+            @RequestHeader("X-User-Name") String username
     ) {
-
-        // get logged-in username from JWT
-        String loggedInUsername = authentication.getName();
 
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // check if logged-in user is same as target user
-        if (!user.getUsername().equals(loggedInUsername)) {
+        // check ownership
+        if (!user.getUsername().equals(username)) {
             throw new RuntimeException("You are not allowed to update this user");
         }
 
-        // update email
         if (request.getEmail() != null) {
             user.setEmail(request.getEmail());
         }
 
-        // update password
         if (request.getPassword() != null) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
