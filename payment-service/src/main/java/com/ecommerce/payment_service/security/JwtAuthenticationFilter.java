@@ -33,7 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String authHeader = request.getHeader("Authorization");
 
-        // ✅ No token → continue (Spring will block later if needed)
+        // No token → continue (Spring will block later if needed)
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -46,7 +46,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 String username = jwtService.extractUsername(token);
 
-                // 🔥 THIS IS THE IMPORTANT PART
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 username,

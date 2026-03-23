@@ -10,8 +10,6 @@ public class PaymentResponseDTO {
     private String paymentMethod;
     private String status;
     private LocalDateTime transactionDate;
-
-    // 🔥 NEW FIELDS
     private String failureReason;
     private String transactionId;
 
@@ -65,7 +63,6 @@ public class PaymentResponseDTO {
         this.transactionDate = transactionDate;
     }
 
-    // 🔥 NEW GETTERS & SETTERS
 
     public String getFailureReason() {
         return failureReason;

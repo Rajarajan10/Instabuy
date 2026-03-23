@@ -1,38 +1,30 @@
 package com.ecommerce.payment_service.service;
 
-// ✅ Config
+
 import com.ecommerce.payment_service.config.PaymentConfig;
 
-// ✅ DTOs
 import com.ecommerce.payment_service.dto.PaymentRequestDTO;
 import com.ecommerce.payment_service.dto.PaymentResponseDTO;
 
-// ✅ Exceptions
 import com.ecommerce.payment_service.exception.PaymentNotFoundException;
 import com.ecommerce.payment_service.exception.InvalidPaymentException;
 import com.ecommerce.payment_service.exception.DuplicatePaymentException;
 import com.ecommerce.payment_service.exception.PaymentAlreadyProcessedException;
 import com.ecommerce.payment_service.exception.PaymentProcessingException;
 
-// ✅ Models
 import com.ecommerce.payment_service.model.Payment;
 import com.ecommerce.payment_service.model.PaymentMethod;
 import com.ecommerce.payment_service.model.PaymentStatus;
 
-// ✅ Repository
 import com.ecommerce.payment_service.repository.PaymentRepository;
 
-// ✅ Utility
 import com.ecommerce.payment_service.util.ProbabilityUtil;
 
-// ✅ Spring
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-// ✅ Lifecycle
 import jakarta.annotation.PostConstruct;
 
-// ✅ Java
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -55,10 +47,9 @@ public class PaymentService {
         }
     }
 
-    // ✅ INITIATE PAYMENT
     public PaymentResponseDTO initiatePayment(PaymentRequestDTO request) {
 
-        // 🔥 Input validation
+        // Input validation
         if (request.getOrderId() == null) {
             throw new InvalidPaymentException("Order ID cannot be null");
         }
@@ -67,7 +58,7 @@ public class PaymentService {
             throw new InvalidPaymentException("Amount must be greater than zero");
         }
 
-        // 🔥 Duplicate check
+        // Duplicate check
         if (paymentRepository.findByOrderId(request.getOrderId()).isPresent()) {
             throw new DuplicatePaymentException(
                     "Payment already exists for order: " + request.getOrderId());
@@ -78,7 +69,7 @@ public class PaymentService {
         payment.setAmount(request.getAmount());
 
         try {
-            // 🔥 Safe enum conversion
+            // Safe enum conversion
             String methodStr = ProbabilityUtil.pickByProbability(
                     paymentConfig.getMethodProbability()
             );
@@ -106,7 +97,7 @@ public class PaymentService {
     }
 
 
-    // ✅ PROCESS PAYMENT
+    // PROCESS PAYMENT
     public PaymentResponseDTO processPayment(Long orderId) {
 
         Payment payment = paymentRepository.findByOrderId(orderId)
@@ -144,7 +135,7 @@ public class PaymentService {
     }
 
 
-    // ✅ GET PAYMENT BY ID
+    // GET PAYMENT BY ID
     public PaymentResponseDTO getPaymentById(Long id) {
 
         Payment payment = paymentRepository.findById(id)
@@ -155,7 +146,7 @@ public class PaymentService {
     }
 
 
-    // ✅ GET PAYMENT BY ORDER
+    // GET PAYMENT BY ORDER
     public PaymentResponseDTO getPaymentByOrder(Long orderId) {
 
         Payment payment = paymentRepository.findByOrderId(orderId)
@@ -166,7 +157,7 @@ public class PaymentService {
     }
 
 
-    // ✅ GET ALL
+    // GET ALL
     public List<PaymentResponseDTO> getAllPayments() {
         return paymentRepository.findAll()
                 .stream()
@@ -175,7 +166,7 @@ public class PaymentService {
     }
 
 
-    // ✅ DELETE
+    // DELETE
     public void deletePayment(Long id) {
 
         if (!paymentRepository.existsById(id)) {
@@ -186,7 +177,7 @@ public class PaymentService {
     }
 
 
-    // 🔄 ENTITY → DTO
+    // ENTITY → DTO
     private PaymentResponseDTO convertToDTO(Payment payment) {
 
         PaymentResponseDTO dto = new PaymentResponseDTO();

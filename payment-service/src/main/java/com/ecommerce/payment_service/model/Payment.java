@@ -30,11 +30,9 @@ public class Payment {
     @Column(name = "transaction_date", nullable = false)
     private LocalDateTime transactionDate;
 
-    // 🔥 NEW: Failure reason (only for FAILED)
     @Column(name = "failure_reason")
     private String failureReason;
 
-    // 🔥 NEW: Transaction ID (unique like real systems)
     @Column(name = "transaction_id", unique = true, nullable = false)
     private String transactionId;
 
@@ -49,7 +47,7 @@ public class Payment {
         this.transactionDate = transactionDate;
     }
 
-    // ===== GETTERS =====
+    //GETTERS
 
     public Long getPaymentId() {
         return paymentId;
@@ -83,7 +81,7 @@ public class Payment {
         return transactionId;
     }
 
-    // ===== SETTERS =====
+    //SETTERS
 
     public void setPaymentId(Long paymentId) {
         this.paymentId = paymentId;
@@ -116,8 +114,6 @@ public class Payment {
     public void setTransactionId(String transactionId) {
         this.transactionId = transactionId;
     }
-
-    // ===== AUTO GENERATION =====
 
     @PrePersist
     protected void onCreate() {

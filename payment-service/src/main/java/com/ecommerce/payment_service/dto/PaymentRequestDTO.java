@@ -5,7 +5,7 @@ public class PaymentRequestDTO {
     private Long orderId;
     private Double amount;
 
-    // 🔥 Optional now (backend overrides anyway)
+
     private String paymentMethod;
 
     public PaymentRequestDTO() {}

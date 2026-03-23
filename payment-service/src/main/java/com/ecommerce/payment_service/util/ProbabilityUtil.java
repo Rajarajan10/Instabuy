@@ -7,9 +7,6 @@ public class ProbabilityUtil {
 
     private static final Random random = new Random();
 
-    /**
-     * Picks a key based on probability distribution
-     */
     public static String pickByProbability(Map<String, Double> probabilities) {
 
         if (probabilities == null || probabilities.isEmpty()) {
@@ -31,9 +28,6 @@ public class ProbabilityUtil {
         return probabilities.keySet().iterator().next();
     }
 
-    /**
-     * Validates if probabilities sum to ~1
-     */
     public static void validateProbabilities(Map<String, Double> probabilities) {
         double sum = probabilities.values()
                 .stream()
