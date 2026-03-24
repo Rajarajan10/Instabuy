@@ -23,7 +23,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         String path = exchange.getRequest().getURI().getPath();
 
         // Allow public APIs
-        if (path.startsWith("/auth")) {
+        if (path.startsWith("/auth") || path.startsWith("/payments")) {
             return chain.filter(exchange);
         }
 
@@ -51,8 +51,12 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
             // Inventory POST → ADMIN only
             if (path.startsWith("/inventory")
-                    && exchange.getRequest().getMethod().name().equals("POST")
-                    && !"ADMIN".equals(role)) {
+                    && (
+                    exchange.getRequest().getMethod().name().equals("POST") ||
+                            exchange.getRequest().getMethod().name().equals("PUT") ||
+                            exchange.getRequest().getMethod().name().equals("DELETE")
+            )
+                    && !role.contains("ADMIN")) {
 
                 return handleError(exchange, HttpStatus.FORBIDDEN, "Only ADMIN can modify inventory");
             }
